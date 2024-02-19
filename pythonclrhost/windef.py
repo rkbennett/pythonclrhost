@@ -72,7 +72,8 @@ VT_BYREF = 0x4000
 VT_TYPEMASK = 0xfff
 
 win_errors = {
-    "2147500035": "E_POINTER"
+    "2147500035": "E_POINTER",
+    "2147942487": "E_INVALIDARG"
 }
 
 # COM Interface Structures
