@@ -1,5 +1,8 @@
 import ctypes
 
+ntdll = ctypes.WinDLL("ntdll.dll")
+OleAut32 = ctypes.WinDLL("OleAut32.dll")
+
 # BindingFlag ints
 class BindingFlags:
      BindingFlags_Default = 0
@@ -78,7 +81,28 @@ win_errors = {
 
 # COM Interface Structures
 class BSTR(ctypes._SimpleCData):
+    "The windows BSTR data type"
     _type_ = "X"
+    _needsfree = False
+    def __repr__(self):
+        return "%s(%r)" % (self.__class__.__name__, self.value)
+    def __ctypes_from_outparam__(self):
+        self._needsfree = True
+        return self.value
+    def __del__(self, _free=OleAut32.SysFreeString):
+        # Free the string if self owns the memory
+        # or if instructed by __ctypes_from_outparam__.
+        if self._b_base_ is None or self._needsfree:
+            _free(self)
+    @classmethod
+    def from_param(cls, value):
+        """Convert into a foreign function call parameter."""
+        if isinstance(value, cls):
+            return value
+        # Although the builtin SimpleCData.from_param call does the
+        # right thing, it doesn't ensure that SysFreeString is called
+        # on destruction.
+        return cls(value)
 
 class SafeArrayBound(ctypes.Structure):
     _fields_ = [
@@ -683,7 +707,6 @@ IID_ICorRuntimeHost = GUID(0xcb2f6722, 0xab3a, 0x11d2, (ctypes.c_ubyte * 8)(0x9c
 IID_AppDomain = GUID(0x05F696DC, 0x2B29, 0x3663, (ctypes.c_ubyte * 8)(0xAD, 0x8B, 0xC4,0x38, 0x9C, 0xF2, 0xA7, 0x13))
 
 # Windows API Functions
-ntdll = ctypes.WinDLL("ntdll.dll")
 RtlMoveMemory = ntdll.RtlMoveMemory
 RtlMoveMemory.argtypes = (
         ctypes.c_void_p,
@@ -691,7 +714,6 @@ RtlMoveMemory.argtypes = (
         ctypes.c_size_t
 )
 RtlMoveMemory.restype = ctypes.c_void_p
-OleAut32 = ctypes.WinDLL("OleAut32.dll")
 SafeArrayCreate = OleAut32.SafeArrayCreate
 SafeArrayCreate.restype = ctypes.POINTER(SafeArray)
 SafeArrayCreate.argtypes = [
@@ -722,6 +744,7 @@ SysAllocString.argtypes = [
     ctypes.c_wchar_p
 ]
 SysAllocString.restype = BSTR
+SysFreeString = OleAut32.SysFreeString
 mscoree = ctypes.WinDLL("mscoree.dll")
 CLRCreateInstance = mscoree.CLRCreateInstance
 CLRCreateInstance.argtypes = (
