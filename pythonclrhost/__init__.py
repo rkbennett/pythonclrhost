@@ -6,6 +6,8 @@ class clrhost(object):
         self.pAssembly = ctypes.c_void_p()
         self.Class = None
         self.ConfigFile = None
+        self.BSTR = {}
+        self.Types = {}
 
     def get_installed_runtimes(self, metaHost):
         pInstalledRuntimes = IEnumUnknown()
@@ -110,23 +112,26 @@ class clrhost(object):
         nullPtr = ctypes.c_void_p(None)
         vtPSEntryPointReturnVal = VARIANT()
         safe_array = SafeArrayCreateVector(VT_VARIANT,0,0)
-        bstrCls = SysAllocString(
-            cls
-        )
-        HRESULT = self.pAssembly.contents.vtbl.contents.GetType_2(
-            self.pAssembly,
-            bstrCls,
-            ctypes.byref(pType)
-        )
-        if HRESULT:
-            raise OSError(f"Failed to get type with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
+        if Class not in self.Types:
+            if Class not in self.BSTR:
+                self.BSTR[Class] = SysAllocString(
+                    cls
+                )
+            HRESULT = self.pAssembly.contents.vtbl.contents.GetType_2(
+                self.pAssembly,
+                self.BSTR[Class],#bstrCls,
+                ctypes.byref(pType)
+            )
+            if HRESULT:
+                raise OSError(f"Failed to get type with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
+            typeInterface = ctypes.cast(pType, ctypes.POINTER(Type))
+            self.Types[Class] = typeInterface
         dotnetMethod = ctypes.c_wchar_p(Method)
         bstrDotnetMethod = SysAllocString(
             dotnetMethod
         )
-        typeInterface = ctypes.cast(pType, ctypes.POINTER(Type))
-        HRESULT = typeInterface.contents.vtbl.contents.InvokeMember_3(
-            typeInterface,
+        HRESULT = self.Types[Class].contents.vtbl.contents.InvokeMember_3(
+            self.Types[Class],
             bstrDotnetMethod,
             ctypes.c_uint(BindingFlags.BindingFlags_InvokeMethod | BindingFlags.BindingFlags_Static | BindingFlags.BindingFlags_Public),
             nullPtr,
@@ -148,9 +153,6 @@ class clrhost(object):
         nullPtr = ctypes.c_void_p(None)
         domain = ctypes.c_wchar_p(Domain)
         vtPSEntryPointReturnVal = VARIANT()
-        bstrCls = SysAllocString(
-            cls
-        )
         staticMethodName = ctypes.c_wchar_p("CreateAppDomain")
         bstrStaticMethodName = SysAllocString(
             staticMethodName
@@ -167,14 +169,20 @@ class clrhost(object):
         vtStringArg2 = VARIANT()
         if bstrConfigFile:
             vtStringArg2._set_value(bstrConfigFile)
-        HRESULT= self.pAssembly.contents.vtbl.contents.GetType_2(
-            self.pAssembly,
-            bstrCls,
-            ctypes.byref(pType)
-        )
-        if HRESULT:
-            raise OSError(f"Failed to get type with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
-        typeInterface = ctypes.cast(pType, ctypes.POINTER(Type))
+        if self.Class not in self.Types:
+            if self.Class not in self.BSTR:
+                self.BSTR[self.Class] = SysAllocString(
+                    cls
+                )
+            HRESULT= self.pAssembly.contents.vtbl.contents.GetType_2(
+                self.pAssembly,
+                self.BSTR[self.Class],#bstrCls,
+                ctypes.byref(pType)
+            )
+            if HRESULT:
+                raise OSError(f"Failed to get type with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
+            typeInterface = ctypes.cast(pType, ctypes.POINTER(Type))
+            self.Types[self.Class] = typeInterface
         psaStaticMethodArgs = SafeArrayCreateVector(VT_VARIANT,0,2)
         if not psaStaticMethodArgs:
             raise OSError(f"Failed to create safearray vector with error: {ctypes.get_last_error()}")
@@ -194,8 +202,8 @@ class clrhost(object):
         )
         if HRESULT:
             raise OSError(f"Failed to put safearray element with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
-        HRESULT = typeInterface.contents.vtbl.contents.InvokeMember_3(
-            typeInterface,
+        HRESULT = self.Types[self.Class].contents.vtbl.contents.InvokeMember_3(
+            self.Types[self.Class],
             bstrStaticMethodName,
             ctypes.c_uint(BindingFlags.BindingFlags_InvokeMethod | BindingFlags.BindingFlags_Static | BindingFlags.BindingFlags_Public),
             nullPtr,
@@ -218,7 +226,6 @@ class clrhost(object):
         sz = ctypes.c_uint(1)
         pType = ctypes.c_void_p()
         nullPtr = ctypes.c_void_p(None)
-        cls = ctypes.c_wchar_p(self.Class)
         vtPSEntryPointReturnVal = VARIANT()
         asm = ctypes.create_string_buffer(buff)
         typeName = ctypes.c_wchar_p("Python.Runtime.Loader")
@@ -233,10 +240,6 @@ class clrhost(object):
         vtTypeArg._set_value(bstrTypeName)
         vtFuncArg = VARIANT()
         vtFuncArg._set_value(bstrFunction)
-        cls = ctypes.c_wchar_p("ClrLoader.ClrLoader")
-        bstrCls = SysAllocString(
-            cls
-        )
         staticMethodName = "GetFunction"
         bstrStaticMethodName = SysAllocString(
             staticMethodName
@@ -252,14 +255,21 @@ class clrhost(object):
         vtAsmArg = VARIANT()
         vtAsmArg._set_value(asmSafeArr)
         RtlMoveMemory(asmSafeArr.contents.pvData, asm, len(asm))
-        HRESULT = self.pAssembly.contents.vtbl.contents.GetType_2(
-            self.pAssembly,
-            bstrCls,
-            ctypes.byref(pType)
-        )
-        if HRESULT:
-            raise OSError(f"Failed to get type with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
-        typeInterface = ctypes.cast(pType, ctypes.POINTER(Type))
+        if self.Class not in self.Types:
+            if self.Class not in self.BSTR:
+                cls = ctypes.c_wchar_p(self.Class)
+                self.BSTR[self.Class] = SysAllocString(
+                    cls
+                )
+            HRESULT = self.pAssembly.contents.vtbl.contents.GetType_2(
+                self.pAssembly,
+                self.BSTR[self.Class],#bstrCls,
+                ctypes.byref(pType)
+            )
+            if HRESULT:
+                raise OSError(f"Failed to get type with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
+            typeInterface = ctypes.cast(pType, ctypes.POINTER(Type))
+            self.Types[self.Class] = typeInterface
         psaStaticMethodArgs = SafeArrayCreateVector(ctypes.c_uint16(VT_VARIANT),0,4)
         if not psaStaticMethodArgs:
             raise OSError(f"Failed to create safearray vector with error: {ctypes.get_last_error()}")
@@ -295,8 +305,8 @@ class clrhost(object):
         )
         if HRESULT:
             raise OSError(f"Failed to put safearray element with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
-        HRESULT = typeInterface.contents.vtbl.contents.InvokeMember_3(
-            typeInterface,
+        HRESULT = self.Types[self.Class].contents.vtbl.contents.InvokeMember_3(
+            self.Types[self.Class],
             bstrStaticMethodName,
             ctypes.c_uint(BindingFlags.BindingFlags_InvokeMethod | BindingFlags.BindingFlags_Static | BindingFlags.BindingFlags_Public),
             nullPtr,
@@ -315,24 +325,27 @@ class clrhost(object):
     def close_appdomain(self, Domain: int):
         vtEmpty = VARIANT()
         pType = ctypes.c_void_p()
-        cls = ctypes.c_wchar_p(self.Class)
         nullPtr = ctypes.c_void_p(None)
         vtPSEntryPointReturnVal = VARIANT()
-        bstrCls = SysAllocString(
-            cls
-        )
-        HRESULT = self.pAssembly.contents.vtbl.contents.GetType_2(
-            self.pAssembly,
-            bstrCls,
-            ctypes.byref(pType)
-        )
-        if HRESULT:
-            raise OSError(f"Failed to get type with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
+        if self.Class not in self.Types:
+            if self.Class not in self.BSTR:
+                cls = ctypes.c_wchar_p(self.Class)
+                self.BSTR[self.Class] = SysAllocString(
+                    cls
+                )
+            HRESULT = self.pAssembly.contents.vtbl.contents.GetType_2(
+                self.pAssembly,
+                self.BSTR[self.Class],#bstrCls,
+                ctypes.byref(pType)
+            )
+            if HRESULT:
+                raise OSError(f"Failed to get type with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
+            typeInterface = ctypes.cast(pType, ctypes.POINTER(Type))
+            self.Types[self.Class] = typeInterface
         psaStaticMethodArgs = SafeArrayCreateVector(VT_VARIANT,0,1)
         if not psaStaticMethodArgs:
             raise OSError(f"Failed to create safearray vector with error: {ctypes.get_last_error()}")
         index0 = ctypes.c_long(0)
-        typeInterface = ctypes.cast(pType, ctypes.POINTER(Type))
         domainArg = VARIANT()
         domainArg._set_value(int(Domain))
         staticMethodName = ctypes.c_wchar_p("CloseAppDomain")
@@ -346,8 +359,8 @@ class clrhost(object):
         )
         if HRESULT:
             raise OSError(f"Failed to put safearray element with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
-        HRESULT = typeInterface.contents.vtbl.contents.InvokeMember_3(
-            typeInterface,
+        HRESULT = self.Types[self.Class].contents.vtbl.contents.InvokeMember_3(
+            self.Types[self.Class],
             bstrStaticMethodName,
             ctypes.c_uint(BindingFlags.BindingFlags_InvokeMethod | BindingFlags.BindingFlags_Static | BindingFlags.BindingFlags_Public),
             nullPtr,
