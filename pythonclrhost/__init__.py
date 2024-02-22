@@ -113,13 +113,9 @@ class clrhost(object):
         vtPSEntryPointReturnVal = VARIANT()
         safe_array = SafeArrayCreateVector(VT_VARIANT,0,0)
         if Class not in self.Types:
-            if Class not in self.BSTR:
-                self.BSTR[Class] = SysAllocString(
-                    cls
-                )
             HRESULT = self.pAssembly.contents.vtbl.contents.GetType_2(
                 self.pAssembly,
-                self.BSTR[Class],#bstrCls,
+                Class,#bstrCls,
                 ctypes.byref(pType)
             )
             if HRESULT:
@@ -170,13 +166,9 @@ class clrhost(object):
         if bstrConfigFile:
             vtStringArg2._set_value(bstrConfigFile)
         if self.Class not in self.Types:
-            if self.Class not in self.BSTR:
-                self.BSTR[self.Class] = SysAllocString(
-                    cls
-                )
             HRESULT= self.pAssembly.contents.vtbl.contents.GetType_2(
                 self.pAssembly,
-                self.BSTR[self.Class],#bstrCls,
+                self.Class,#bstrCls,
                 ctypes.byref(pType)
             )
             if HRESULT:
@@ -259,14 +251,9 @@ class clrhost(object):
         vtAsmArg._set_value(asmSafeArr)
         RtlMoveMemory(asmSafeArr.contents.pvData, asm, len(asm))
         if self.Class not in self.Types:
-            if self.Class not in self.BSTR:
-                cls = ctypes.c_wchar_p(self.Class)
-                self.BSTR[self.Class] = SysAllocString(
-                    cls
-                )
             HRESULT = self.pAssembly.contents.vtbl.contents.GetType_2(
                 self.pAssembly,
-                self.BSTR[self.Class],#bstrCls,
+                self.Class,#bstrCls,
                 ctypes.byref(pType)
             )
             if HRESULT:
@@ -334,14 +321,9 @@ class clrhost(object):
         nullPtr = ctypes.c_void_p(None)
         vtPSEntryPointReturnVal = VARIANT()
         if self.Class not in self.Types:
-            if self.Class not in self.BSTR:
-                cls = ctypes.c_wchar_p(self.Class)
-                self.BSTR[self.Class] = SysAllocString(
-                    cls
-                )
             HRESULT = self.pAssembly.contents.vtbl.contents.GetType_2(
                 self.pAssembly,
-                self.BSTR[self.Class],#bstrCls,
+                self.Class,
                 ctypes.byref(pType)
             )
             if HRESULT:
