@@ -421,6 +421,7 @@ class VARIANT(ctypes.Structure):
                     ("VT_UI1", ctypes.c_byte),
                     ("VT_UI2", ctypes.c_ushort),
                     ("VT_UI4", ctypes.c_ulong),
+                    ("VT_UI8", ctypes.c_ulonglong),
                     ("VT_UINT", ctypes.c_uint),
                     ("VT_UNKNOWN", ctypes.POINTER(IUnknown)),
                     # faked fields, only for our convenience:
@@ -513,6 +514,8 @@ class VARIANT(ctypes.Structure):
             return self._.VT_UI2
         elif self.vt == VT_UI4:
             return self._.VT_UI4
+        elif self.vt == VT_UI8:
+            return self._.VT_UI8
         elif self.vt == VT_INT:
             return self._.VT_INT
         elif self.vt == VT_UINT:

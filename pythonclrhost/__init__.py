@@ -145,7 +145,7 @@ class clrhost(object):
         if HRESULT:
             raise OSError(f"Failed to clean up safearray with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
 
-    def create_appdomain(self, Domain: str, ConfigFile: str=None):
+    def pyclr_create_appdomain(self, Domain: str, ConfigFile: str=None):
         vtEmpty = VARIANT()
         pType = ctypes.c_void_p()
         self.ConfigFile = ConfigFile
@@ -216,23 +216,26 @@ class clrhost(object):
         HRESULT = SafeArrayDestroy(psaStaticMethodArgs)
         if HRESULT:
             raise OSError(f"Failed to clean up safearray with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
-        if vtPSEntryPointReturnVal._get_value() == 0:
+        if vtPSEntryPointReturnVal._get_value() == 0 and Domain:
             raise OSError(f"Failed to create appdomain")
-        vtPSEntryPointReturnVal.vt = VT_UINT
+        if sys.maxsize > 2**32:
+            vtPSEntryPointReturnVal.vt = VT_UI8
+        else:
+            vtPSEntryPointReturnVal.vt = VT_UI4
         return vtPSEntryPointReturnVal._get_value()
     
-    def get_function(self, buff: bytes, Domain: int=0):
+    def pyclr_get_function(self, Domain: int=0, TypeName: str="Python.Runtime.Loader", Function: str="Initialize", buff: bytes=b""):
         vtEmpty = VARIANT()
         sz = ctypes.c_uint(1)
         pType = ctypes.c_void_p()
         nullPtr = ctypes.c_void_p(None)
         vtPSEntryPointReturnVal = VARIANT()
         asm = ctypes.create_string_buffer(buff)
-        typeName = ctypes.c_wchar_p("Python.Runtime.Loader")
+        typeName = ctypes.c_wchar_p(TypeName)
         bstrTypeName = SysAllocString(
             typeName
         )
-        function = ctypes.c_wchar_p("Initialize")
+        function = ctypes.c_wchar_p(Function)
         bstrFunction = SysAllocString(
             function
         )
@@ -319,10 +322,13 @@ class clrhost(object):
         HRESULT = SafeArrayDestroy(psaStaticMethodArgs)
         if HRESULT:
             raise OSError(f"Failed to clean up safearray with error: {win_errors[str(HRESULT)]} ({hex(HRESULT)})")
-        vtPSEntryPointReturnVal.vt = VT_UINT
+        if sys.maxsize > 2**32:
+            vtPSEntryPointReturnVal.vt = VT_UI8
+        else:
+            vtPSEntryPointReturnVal.vt = VT_UI4
         return vtPSEntryPointReturnVal._get_value()
     
-    def close_appdomain(self, Domain: int):
+    def pyclr_close_appdomain(self, Domain: int):
         vtEmpty = VARIANT()
         pType = ctypes.c_void_p()
         nullPtr = ctypes.c_void_p(None)
