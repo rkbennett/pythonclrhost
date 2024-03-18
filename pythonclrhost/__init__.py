@@ -1,3 +1,4 @@
+import sys
 import ctypes
 from .windef import *
 
